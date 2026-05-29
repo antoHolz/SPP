@@ -1,5 +1,5 @@
 # path configuration
-name: applewood_local
-base_path_datasets: D:/Datasets/DS_TS
+name: applewood_remote
+base_path_datasets: ../Datasets
 base_path_models: ./data/models
 base_path: ./data
