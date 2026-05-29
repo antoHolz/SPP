@@ -33,17 +33,24 @@ class LightningModel(pl.LightningModule):
         self.model = model
         self.cfg = cfg
 
+        # Per-target logging is enabled for multioutput regression only.
+        self._ycols = list(self.cfg.dataset.get("ycols", []))
+        self._per_output = self.cfg.training.get("task", "forecasting") == "regression" and len(self._ycols) > 1
+
         # Instantiate the loss function from the configuration
         self.criterion = hydra.utils.instantiate(cfg.training.loss)
+        if self._per_output:
+            # Same loss, unreduced, to split into per-target values in step().
+            self.criterion_per_output = hydra.utils.instantiate(cfg.training.loss, reduction="none")
 
-        # Instantiate metrics for training, validation, and testing phases
+        # Instantiate metrics for training, validation, and testing phases.
+        # For multioutput regression, also keep one copy per target column.
         for metric_name, metric_cfg in self.cfg.training.metrics.items():
-            train_metric = hydra.utils.instantiate(metric_cfg)
-            val_metric = hydra.utils.instantiate(metric_cfg)
-            test_metric = hydra.utils.instantiate(metric_cfg)
-            setattr(self, f"train_{metric_name}", train_metric)
-            setattr(self, f"val_{metric_name}", val_metric)
-            setattr(self, f"test_{metric_name}", test_metric)
+            for phase in ("train", "val", "test"):
+                setattr(self, f"{phase}_{metric_name}", hydra.utils.instantiate(metric_cfg))
+                if self._per_output:
+                    for ycol in self._ycols:
+                        setattr(self, f"{phase}_{metric_name}__{ycol}", hydra.utils.instantiate(metric_cfg))
 
         self.save_hyperparameters(cfg)
 
@@ -86,6 +93,19 @@ class LightningModel(pl.LightningModule):
             batch_y_hat = self(batch_x) # This one expects outs of shape (B, out_n), not squeezed, unlike the classificaiton tasks
             loss = self.criterion(batch_y_hat, batch_y.float())
 
+            # Per-target loss: mean over the batch dim only -> (n_out,)
+            if self._per_output:
+                per_out_loss = self.criterion_per_output(batch_y_hat, batch_y.float()).mean(dim=0)
+                for i, ycol in enumerate(self._ycols):
+                    self.log(
+                        f"{phase}_loss_{ycol}",
+                        per_out_loss[i].detach(),
+                        on_step=phase == "train",
+                        on_epoch=True,
+                        prog_bar=False,
+                        sync_dist=True,
+                    )
+
         ###############################################################
         # logging metrics
         ###############################################################
@@ -100,6 +120,20 @@ class LightningModel(pl.LightningModule):
                 prog_bar=True,
                 sync_dist=True,
             )
+
+            # Per-target metric: each ycol column fed to its own metric instance
+            if self._per_output:
+                for i, ycol in enumerate(self._ycols):
+                    per_metric = getattr(self, f"{phase}_{metric_name}__{ycol}")
+                    per_value = per_metric(batch_y_hat[:, i].detach(), batch_y[:, i].detach())
+                    self.log(
+                        f"{phase}_{metric_name}_{ycol}",
+                        per_value,
+                        on_step=phase == "train",
+                        on_epoch=True,
+                        prog_bar=False,
+                        sync_dist=True,
+                    )
 
         self.log(f"{phase}_loss", loss.detach(), on_step= phase == "train", on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
