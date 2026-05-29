@@ -18,7 +18,7 @@ from modules.utils.seeds import seed_everything
 from modules.utils.hydraqol import run_decorator
 
 
-@hydra.main(config_path="../data/config", config_name="train_model", version_base="1.3")
+@hydra.main(config_path="../config", config_name="train_model", version_base="1.3")
 @run_decorator
 def main(cfg: DictConfig) -> None:
     """Train an SPP time-series model with PyTorch Lightning.
