@@ -1,0 +1,7 @@
+# path configuration
+name: relative
+# SPP HuggingFace dataset currently lives under D:/Datasets/DS_TS/WZL/SPP/raw/SPP
+# (will be moved to .../WZL/SPP/SPPresized -- update the dataset configs' dataset_path then).
+base_path_datasets: D:/Datasets/DS_TS
+base_path_models: ./data/models
+base_path: ./data

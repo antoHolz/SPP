@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - override /training: basic
+
+hydra: 
+  mode: MULTIRUN
+  sweeper:
+    params:
+      model: net2,net5,net7
+      seed: range(0,5)
+      training.epochs: 3

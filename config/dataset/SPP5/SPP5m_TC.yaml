@@ -1,0 +1,68 @@
+#############################################################################################
+# General parameters
+#############################################################################################
+n_channels: 4
+n_classes: 1
+name: SPP5m_TC
+task: regression
+mean: {'stempel_vorne': 48158.2884484581, 'stempel_rechts': 41623.172109000676, 'stempel_hinten': 45371.529928335454, 'stempel_links': 43741.78429750066, 'niederhalter_1': 47167.346603210266, 'niederhalter_2': 38883.48390927021, 'niederhalter_3': 42677.83643306107, 'niederhalter_4': 43069.43544536612, 'gegenhalter': 63792.175113505145, 'weg_100mm': 16.210196878758186, 'weg_25mm': 9.363439930607823, 'stempel_combined': 178894.77479448533, 'schneidkraft': 115102.59967316852, 'niederhalter_combined': 171798.10239670254, 'TC_total_gpr': 25.87603463009709}
+std: {'stempel_vorne': 68133.46370880732, 'stempel_rechts': 59402.95415873457, 'stempel_hinten': 66166.54467415108, 'stempel_links': 62788.27223663018, 'niederhalter_1': 42780.29268195524, 'niederhalter_2': 38090.65372737597, 'niederhalter_3': 40854.80601251342, 'niederhalter_4': 40519.22913473879, 'gegenhalter': 82224.47767905866, 'weg_100mm': 17.66332271345153, 'weg_25mm': 9.730744822947205, 'stempel_combined': 256400.08193135893, 'schneidkraft': 184912.96149371858, 'niederhalter_combined': 161826.26499839174, 'TC_total_gpr': 16.96475037628082}
+#############################################################################################
+# Dataset configurations
+#############################################################################################
+type: timeseries
+xcols:
+- gegenhalter #
+- stempel_combined #
+- schneidkraft #
+- niederhalter_combined #
+ycols:
+- TC_total_gpr
+
+test:
+  _target_: modules.dataset.HFDataset
+  dataset:
+    _target_: datasets.Dataset.load_from_disk
+    dataset_path: ${dataset.train.dataset.dataset_path}
+  xcols: ${dataset.xcols}
+  ycols: ${dataset.ycols}
+train:
+  _target_: modules.dataset.HFDataset
+  dataset:
+    _target_: datasets.Dataset.load_from_disk
+    dataset_path: ${path.base_path_datasets}/WZL/SPP/SPP_resized
+  xcols: ${dataset.xcols}
+  ycols: ${dataset.ycols}
+val:
+  _target_: modules.dataset.HFDataset
+  dataset:
+    _target_: datasets.Dataset.load_from_disk
+    dataset_path: ${dataset.train.dataset.dataset_path}
+  xcols: ${dataset.xcols}
+  ycols: ${dataset.ycols}
+#############################################################################################
+# Preprocessing parameters
+#############################################################################################
+pretransform:
+  _target_: torchvision.transforms.Compose
+  transforms:
+  - _target_: modules.transforms.HFToTensor
+    fields: ${dataset.xcols} + ${dataset.ycols}
+  - _target_: modules.transforms.HFStack
+    fields: ${dataset.xcols}
+    dim: 0
+    new_name: x
+  - _target_: modules.transforms.HFCat
+    fields: ${dataset.ycols}
+    dim: 0
+    new_name: y
+    squeeze1D: False
+  - _target_: modules.transforms.HFSelect
+    fields:
+    - x
+    - y
+  - _target_: modules.transforms.hftransforms.HFResize
+    fields:
+    - x
+    target_length: 150
+    mode: linear

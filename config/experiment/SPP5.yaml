@@ -1,0 +1,13 @@
+# @package _global_
+defaults:
+  - override /transforms: tsHFbasic
+  - override /loader: M
+  - override /training: adamw_r_patient
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      dataset: SPP5/SPP5l_DR,SPP5/SPP5l_params,SPP5/SPP5l_TC,SPP5/SPP5m_DR,SPP5/SPP5m_params,SPP5/SPP5m_TC,SPP5/SPP5s_DR,SPP5/SPP5s_params,SPP5/SPP5s_TC
+      model: InceptionTime10,InceptionTime20,DenseNet1D121,DenseNet1D169,ResNet1D18,ResNet1D50,ResNet1D152
+      seed: 0,1,2
